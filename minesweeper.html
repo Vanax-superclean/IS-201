@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentient Sweeper</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20px;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            background-color: #ddd;
+            border: 2px solid #aaa;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .grid {
+            display: grid;
+            gap: 2px;
+            margin-bottom: 20px;
+        }
+
+        .cell {
+            width: 30px;
+            height: 30px;
+            background-color: #eee;
+            border: 1px solid #ccc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .cell.revealed {
+            background-color: #fff;
+            border-color: #bbb;
+            cursor: default;
+        }
+
+        .cell.mine {
+            background-color: red;
+            color: white;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            font-style: italic;
+            color: #555;
+            text-align: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            border: 1px solid #aaa;
+            background-color: #eee;
+        }
+
+        button:hover {
+            background-color: #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sentient Sweeper</h1>
+        <div class="message" id="message">Ready to sweep? Be careful... I have a bad feeling about this.</div>
+        <div class="grid" id="grid">
+            </div>
+        <button onclick="startGame()">New Game</button>
+    </div>
+
+    <script>
+        const gridSize = 10;
+        const numberOfMines = 15;
+        let gridElement = document.getElementById('grid');
+        let messageElement = document.getElementById('message');
+        let grid = [];
+        let gameOver = false;
+
+        function generateGrid() {
+            grid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(null).map(() => ({
+                isMine: false,
+                isRevealed: false,
+                adjacentMines: 0
+            })));
+        }
+
+        function placeMines() {
+            let minesPlaced = 0;
+            while (minesPlaced < numberOfMines) {
+                const row = Math.floor(Math.random() * gridSize);
+                const col = Math.floor(Math.random() * gridSize);
+                if (!grid[row][col].isMine) {
+                    grid[row][col].isMine = true;
+                    minesPlaced++;
+                }
+            }
+        }
+
+        function calculateAdjacentMines() {
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    if (!grid[i][j].isMine) {
+                        let count = 0;
+                        for (let x = -1; x <= 1; x++) {
+                            for (let y = -1; y <= 1; y++) {
+                                if (x === 0 && y === 0) continue;
+                                const ni = i + x;
+                                const nj = j + y;
+                                if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize && grid[ni][nj].isMine) {
+                                    count++;
+                                }
+                            }
+                        }
+                        grid[i][j].adjacentMines = count;
+                    }
+                }
+            }
+        }
+
+        function createGridElements() {
+            gridElement.innerHTML = '';
+            gridElement.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
+                    cell.addEventListener('click', handleCellClick);
+                    gridElement.appendChild(cell);
+                }
+            }
+        }
+
+        function handleCellClick(event) {
+            if (gameOver) return;
+            const row = parseInt(event.target.dataset.row);
+            const col = parseInt(event.target.dataset.col);
+            const cellData = grid[row][col];
+
+            if (cellData.isRevealed) return;
+
+            if (cellData.isMine) {
+                revealAllMines();
+                messageElement.textContent = "BOOM! Oh dear, I knew it! You've detonated a mine. Game Over!";
+                gameOver = true;
+            } else {
+                revealCell(row, col);
+                if (cellData.adjacentMines === 0) {
+                    revealAdjacentBlanks(row, col);
+                }
+                if (checkWin()) {
+                    messageElement.textContent = "You did it! You navigated the treacherous minefield. I'm... surprised, honestly.";
+                    gameOver = true;
+                } else {
+                    // AI Commentary - Creative Contribution
+                    if (Math.random() < 0.3) {
+                        if (cellData.adjacentMines > 0) {
+                            messageElement.textContent = `Phew, close one! That cell had ${cellData.adjacentMines} lurking nearby. My circuits are tingling!`;
+                        } else {
+                            messageElement.textContent = `Safe... for now. But don't get complacent! The metal snakes are everywhere, I tell you!`;
+                        }
+                    } else {
+                        messageElement.textContent = "Keep going... tread lightly... my internal sensors are picking up... something...";
+                    }
+                }
+            }
+        }
+
+        function revealCell(row, col) {
+            if (row < 0 || row >= gridSize || col < 0 || col >= gridSize || grid[row][col].isRevealed) {
+                return;
+            }
+            const cellElement = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+            grid[row][col].isRevealed = true;
+            cellElement.classList.add('revealed');
+            if (grid[row][col].isMine) {
+                cellElement.classList.add('mine');
+                cellElement.textContent = '💣';
+            } else if (grid[row][col].adjacentMines > 0) {
+                cellElement.textContent = grid[row][col].adjacentMines;
+            }
+        }
+
+        function revealAdjacentBlanks(row, col) {
+            for (let x = -1; x <= 1; x++) {
+                for (let y = -1; y <= 1; y++) {
+                    if (x === 0 && y === 0) continue;
+                    const ni = row + x;
+                    const nj = col + y;
+                    if (ni >= 0 && ni < gridSize && nj >= 0 && nj < gridSize && !grid[ni][nj].isMine && !grid[ni][nj].isRevealed) {
+                        revealCell(ni, nj);
+                        if (grid[ni][nj].adjacentMines === 0) {
+                            revealAdjacentBlanks(ni, nj);
+                        }
+                    }
+                }
+            }
+        }
+
+        function revealAllMines() {
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    if (grid[i][j].isMine) {
+                        revealCell(i, j);
+                    }
+                }
+            }
+        }
+
+        function checkWin() {
+            let nonMineCellsRevealed = 0;
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    if (!grid[i][j].isMine && grid[i][j].isRevealed) {
+                        nonMineCellsRevealed++;
+                    }
+                }
+            }
+            return nonMineCellsRevealed === (gridSize * gridSize - numberOfMines);
+        }
+
+        function startGame() {
+            gameOver = false;
+            messageElement.textContent = "A new game begins... I'm on edge just thinking about it!";
+            generateGrid();
+            placeMines();
+            calculateAdjacentMines();
+            createGridElements();
+        }
+
+        // Initial game start
+        startGame();
+    </script>
+    <a href="scratch.html">This leads back to the scratch page</a>
+</body>
+</html>
